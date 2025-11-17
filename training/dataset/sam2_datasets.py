@@ -10,6 +10,8 @@ from typing import Callable, Iterable, List, Optional, Sequence
 
 import torch
 
+from src.device_utils import get_num_workers
+
 from torch.utils.data import BatchSampler, DataLoader, Dataset, IterableDataset, Subset
 
 from torch.utils.data.distributed import DistributedSampler
@@ -170,7 +172,7 @@ class TorchTrainMixedDataset:
             dataloaders.append(
                 DataLoader(
                     dataset,
-                    num_workers=self.num_workers,
+                    num_workers=get_num_workers(),
                     pin_memory=self.pin_memory,
                     batch_sampler=batch_sampler,
                     collate_fn=self.collate_fn,
