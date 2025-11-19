@@ -37,7 +37,7 @@ trainer:
   _target_: training.trainer.Trainer
   mode: train_only
   max_epochs: ${times:${scratch.num_epochs},${scratch.phases_per_epoch}}
-  accelerator: cpu
+  accelerator: gpu
   seed_value: 123
 
   model:
