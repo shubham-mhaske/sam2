@@ -169,8 +169,8 @@ trainer:
           training: true
           video_dataset:
             _target_: src.finetune_dataset.BCSSRawDataset
-            img_folder: 'data/bcss/images'
-            gt_folder: 'data/bcss/masks'
+            img_folder: 'data/images'
+            gt_folder: 'data/masks'
             split: 'train'
           sampler:
             _target_: training.dataset.vos_sampler.RandomUniformSampler
