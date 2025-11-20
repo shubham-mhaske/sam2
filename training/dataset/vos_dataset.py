@@ -101,6 +101,12 @@ class VOSDataset(VisionDataset):
                 )
             else:
                 segments = segment_loader.load(frame.frame_idx)
+            # If available, retrieve prompts aligned with this load
+            prompts_map = (
+                segment_loader.get_prompts_for_last_load()
+                if hasattr(segment_loader, "get_prompts_for_last_load")
+                else {}
+            )
             for obj_id in sampled_object_ids:
                 # Extract the segment
                 if obj_id in segments:
@@ -114,12 +120,18 @@ class VOSDataset(VisionDataset):
                     if not self.always_target:
                         continue
                     segment = torch.zeros(h, w, dtype=torch.uint8)
+                # Attach explicit prompts if provided by the segment loader
+                prompt = prompts_map.get(obj_id, {}) if isinstance(prompts_map, dict) else {}
+                point_coords = prompt.get('point_coords', None)
+                point_labels = prompt.get('point_labels', None)
 
                 images[frame_idx].objects.append(
                     Object(
                         object_id=obj_id,
                         frame_index=frame.frame_idx,
                         segment=segment,
+                        point_coords=point_coords,
+                        point_labels=point_labels,
                     )
                 )
         return VideoDatapoint(

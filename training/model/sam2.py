@@ -32,6 +32,8 @@ class SAM2Train(SAM2Base):
         prob_to_use_pt_input_for_eval=0.0,
         prob_to_use_box_input_for_train=0.0,
         prob_to_use_box_input_for_eval=0.0,
+        # If set to one of {"centroid","box","multi_point"}, use explicit prompts from dataset
+        explicit_prompt_type: str = None,
         # if it is greater than 1, we interactive point sampling in the 1st frame and other randomly selected frames
         num_frames_to_correct_for_train=1,  # default: only iteratively sample on first frame
         num_frames_to_correct_for_eval=1,  # default: only iteratively sample on first frame
@@ -73,6 +75,7 @@ class SAM2Train(SAM2Base):
         self.forward_backbone_per_frame_for_eval = forward_backbone_per_frame_for_eval
 
         # Point sampler and conditioning frames
+        self.explicit_prompt_type = explicit_prompt_type
         self.prob_to_use_pt_input_for_train = prob_to_use_pt_input_for_train
         self.prob_to_use_box_input_for_train = prob_to_use_box_input_for_train
         self.prob_to_use_pt_input_for_eval = prob_to_use_pt_input_for_eval
@@ -186,7 +189,9 @@ class SAM2Train(SAM2Base):
             num_init_cond_frames = 1
         assert num_init_cond_frames >= 1
         # (here `self.rng.random()` returns value in range 0.0 <= X < 1.0)
-        use_pt_input = self.rng.random() < prob_to_use_pt_input
+        # If explicit prompts are provided, we will use them regardless of probabilities
+        has_explicit_prompts = hasattr(input, 'point_coords') and hasattr(input, 'point_labels') and input.point_coords.numel() > 0
+        use_pt_input = True if (self.explicit_prompt_type and has_explicit_prompts) else (self.rng.random() < prob_to_use_pt_input)
         if rand_init_cond_frames and num_init_cond_frames > 1:
             # randomly select 1 to `num_init_cond_frames` frames as initial conditioning frames
             num_init_cond_frames = self.rng.integers(
@@ -222,7 +227,15 @@ class SAM2Train(SAM2Base):
         backbone_out["mask_inputs_per_frame"] = {}  # {frame_idx: <input_masks>}
         backbone_out["point_inputs_per_frame"] = {}  # {frame_idx: <input_points>}
         for t in init_cond_frames:
-            if not use_pt_input:
+            if self.explicit_prompt_type and has_explicit_prompts:
+                # Use dataset-provided prompts aligned with object order for this frame index t
+                pts = input.point_coords[t]
+                lbs = input.point_labels[t]
+                backbone_out["point_inputs_per_frame"][t] = {
+                    "point_coords": pts,
+                    "point_labels": lbs,
+                }
+            elif not use_pt_input:
                 backbone_out["mask_inputs_per_frame"][t] = gt_masks_per_frame[t]
             else:
                 # During training # P(box) = prob_to_use_pt_input * prob_to_use_box_input
@@ -247,7 +260,9 @@ class SAM2Train(SAM2Base):
 
         # Sample frames where we will add correction clicks on the fly
         # based on the error between prediction and ground-truth masks
-        if not use_pt_input:
+        if self.explicit_prompt_type and has_explicit_prompts:
+            frames_to_add_correction_pt = []
+        elif not use_pt_input:
             # no correction points will be sampled when using mask inputs
             frames_to_add_correction_pt = []
         elif num_frames_to_correct == num_init_cond_frames:

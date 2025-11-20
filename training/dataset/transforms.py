@@ -30,6 +30,16 @@ def hflip(datapoint, index):
     for obj in datapoint.frames[index].objects:
         if obj.segment is not None:
             obj.segment = F.hflip(obj.segment)
+        # Flip point prompts horizontally if present
+        if getattr(obj, 'point_coords', None) is not None and obj.point_coords.numel() > 0:
+            # obj.point_coords shape [K,2], x' = W-1-x
+            if isinstance(datapoint.frames[index].data, PILImage.Image):
+                W = datapoint.frames[index].data.width
+            else:
+                _, _, H_im, W = F.get_dimensions(datapoint.frames[index].data)
+            pc = obj.point_coords.clone()
+            pc[..., 0] = (W - 1) - pc[..., 0]
+            obj.point_coords = pc
 
     return datapoint
 
@@ -95,6 +105,17 @@ def resize(datapoint, index, size, max_size=None, square=False, v2=False):
     for obj in datapoint.frames[index].objects:
         if obj.segment is not None:
             obj.segment = F.resize(obj.segment[None, None], size).squeeze()
+        # Scale point prompts if present
+        if getattr(obj, 'point_coords', None) is not None and obj.point_coords.numel() > 0:
+            # old_size and new_size are (h, w)
+            old_h, old_w = old_size
+            new_h, new_w = new_size
+            scale_x = new_w / max(1, old_w)
+            scale_y = new_h / max(1, old_h)
+            pc = obj.point_coords.clone().to(torch.float32)
+            pc[..., 0] = pc[..., 0] * scale_x
+            pc[..., 1] = pc[..., 1] * scale_y
+            obj.point_coords = pc
 
     h, w = size
     datapoint.frames[index].size = (h, w)
@@ -134,6 +155,17 @@ def pad(datapoint, index, padding, v2=False):
                     obj.segment = F.pad(obj.segment, (0, 0, padding[0], padding[1]))
                 else:
                     obj.segment = F.pad(obj.segment, tuple(padding))
+        # Shift point prompts by padding offsets if present
+        if getattr(obj, 'point_coords', None) is not None and obj.point_coords.numel() > 0:
+            if len(padding) == 2:
+                left, top = 0, 0
+                right, bottom = padding[0], padding[1]
+            else:
+                left, top, right, bottom = padding
+            pc = obj.point_coords.clone().to(torch.float32)
+            pc[..., 0] = pc[..., 0] + left
+            pc[..., 1] = pc[..., 1] + top
+            obj.point_coords = pc
     return datapoint
 
 
