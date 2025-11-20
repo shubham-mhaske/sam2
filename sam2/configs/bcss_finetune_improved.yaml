@@ -2,13 +2,13 @@
 
 scratch:
   resolution: 1024
-  train_batch_size: 2
-  num_train_workers: 6
+  train_batch_size: 8
+  num_train_workers: 8
   num_frames: 1
   max_num_objects: 3
   base_lr: 4.0e-05
   vision_lr: 4.0e-06  # 0.1 * base_lr
-  phases_per_epoch: 100
+  phases_per_epoch: 1
   num_epochs: 50
 
 vos:
@@ -239,7 +239,7 @@ trainer:
 
   checkpoint:
     save_dir: ${launcher.experiment_log_dir}/checkpoints
-    save_freq: 1
+    save_freq: 5
     model_weight_initializer:
       _partial_: true
       _target_: training.utils.checkpoint_utils.load_state_dict_into_model
