@@ -9,7 +9,7 @@ scratch:
   max_num_objects: 3
   base_lr: 2.0e-05
   vision_lr: 1.0e-05
-  phases_per_epoch: 22   # 85 images / 4 batch size = 22 steps per epoch (full dataset)
+  phases_per_epoch: 500  # random sampling from 85 images (original intent)
   num_epochs: 20         # increase for full finetune; 20-50 typical for BCSS
 
 vos:
