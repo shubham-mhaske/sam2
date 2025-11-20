@@ -2,8 +2,8 @@
 
 scratch:
   resolution: 1024
-  train_batch_size: 4
-  num_train_workers: 8
+  train_batch_size: 2
+  num_train_workers: 6
   num_frames: 1
   max_num_objects: 3
   base_lr: 4.0e-05
