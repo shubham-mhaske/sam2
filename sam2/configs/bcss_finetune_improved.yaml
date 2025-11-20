@@ -184,7 +184,7 @@ trainer:
       shuffle: true
       num_workers: ${scratch.num_train_workers}
       pin_memory: true
-      drop_last: true
+      drop_last: false
       collate_fn:
         _target_: training.utils.data_utils.collate_fn
         _partial_: true
