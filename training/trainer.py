@@ -285,12 +285,17 @@ class Trainer:
             torch.cuda.set_device(self.local_rank)
         elif accelerator == "cpu":
             self.device = torch.device("cpu")
+        elif accelerator == "mps":
+            self.device = torch.device("mps")
         else:
             raise ValueError(f"Unsupported accelerator: {accelerator}")
 
     def _setup_ddp_distributed_training(self, distributed_conf, accelerator):
 
         assert isinstance(self.model, torch.nn.Module)
+
+        if accelerator == "mps":
+            return
 
         self.model = nn.parallel.DistributedDataParallel(
             self.model,
@@ -623,7 +628,7 @@ class Trainer:
 
             # compute output
             with torch.no_grad():
-                with torch.cuda.amp.autocast(
+                with torch.amp.autocast(self.device.type,
                     enabled=(self.optim_conf.amp.enabled if self.optim_conf else False),
                     dtype=(
                         get_amp_type(self.optim_conf.amp.amp_dtype)
@@ -832,7 +837,7 @@ class Trainer:
         return out_dict
 
     def _log_sync_data_times(self, phase, data_times):
-        data_times = all_reduce_max(torch.tensor(data_times)).tolist()
+        data_times = all_reduce_max(torch.tensor(data_times, device="cpu")).tolist()
         steps = range(self.steps[phase] - len(data_times), self.steps[phase])
         for step, data_time in zip(steps, data_times):
             if step % self.logging_conf.log_scalar_frequency == 0:
@@ -858,7 +863,7 @@ class Trainer:
         # grads will also update a model even if the step doesn't produce
         # gradients
         self.optim.zero_grad(set_to_none=True)
-        with torch.cuda.amp.autocast(
+        with torch.amp.autocast(self.device.type,
             enabled=self.optim_conf.amp.enabled,
             dtype=get_amp_type(self.optim_conf.amp.amp_dtype),
         ):
