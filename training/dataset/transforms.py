@@ -44,6 +44,26 @@ def hflip(datapoint, index):
     return datapoint
 
 
+def vflip(datapoint, index):
+
+    datapoint.frames[index].data = F.vflip(datapoint.frames[index].data)
+    for obj in datapoint.frames[index].objects:
+        if obj.segment is not None:
+            obj.segment = F.vflip(obj.segment)
+        # Flip point prompts vertically if present
+        if getattr(obj, 'point_coords', None) is not None and obj.point_coords.numel() > 0:
+            # obj.point_coords shape [K,2], y' = H-1-y
+            if isinstance(datapoint.frames[index].data, PILImage.Image):
+                H = datapoint.frames[index].data.height
+            else:
+                _, _, H, W_im = F.get_dimensions(datapoint.frames[index].data)
+            pc = obj.point_coords.clone()
+            pc[..., 1] = (H - 1) - pc[..., 1]
+            obj.point_coords = pc
+
+    return datapoint
+
+
 def get_size_with_aspect_ratio(image_size, size, max_size=None):
     w, h = image_size
     if max_size is not None:
@@ -183,6 +203,23 @@ class RandomHorizontalFlip:
         for i in range(len(datapoint.frames)):
             if random.random() < self.p:
                 datapoint = hflip(datapoint, i)
+        return datapoint
+
+
+class RandomVerticalFlip:
+    def __init__(self, consistent_transform, p=0.5):
+        self.p = p
+        self.consistent_transform = consistent_transform
+
+    def __call__(self, datapoint, **kwargs):
+        if self.consistent_transform:
+            if random.random() < self.p:
+                for i in range(len(datapoint.frames)):
+                    datapoint = vflip(datapoint, i)
+            return datapoint
+        for i in range(len(datapoint.frames)):
+            if random.random() < self.p:
+                datapoint = vflip(datapoint, i)
         return datapoint
 
 
